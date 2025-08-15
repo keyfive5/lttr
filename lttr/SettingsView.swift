@@ -4,10 +4,40 @@ struct SettingsView: View {
     @ObservedObject var dataManager: DataManager
     @State private var showingExportSheet = false
     @State private var showingImportSheet = false
+    @State private var showingProfile = false
     
     var body: some View {
         NavigationView {
             List {
+                Section("Profile") {
+                    Button(action: { showingProfile = true }) {
+                        HStack {
+                            Image(systemName: "person.circle")
+                                .foregroundColor(.blue)
+                            Text("User Profile")
+                            Spacer()
+                            Text(dataManager.userProfile.username.isEmpty ? "Not Set" : dataManager.userProfile.username)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    if dataManager.userProfile.subscriptionType == .trial {
+                        HStack {
+                            Text("Trial Status")
+                            Spacer()
+                            Text("\(dataManager.daysLeftInTrial) days left")
+                                .foregroundColor(.orange)
+                        }
+                    } else {
+                        HStack {
+                            Text("Subscription")
+                            Spacer()
+                            Text(dataManager.userProfile.subscriptionType.rawValue)
+                                .foregroundColor(.green)
+                        }
+                    }
+                }
+                
                 Section("App Preferences") {
                     HStack {
                         Text("Currency")
@@ -78,16 +108,30 @@ struct SettingsView: View {
                             .font(.headline)
                             .fontWeight(.semibold)
                         
-                        Text("Casino Letter Tracker")
+                        Text("Letter Tracker")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                         
-                        Text("Track your casino letter profits and manage your side hustle efficiently.")
+                        Text("Track your letter writing profits and manage your side hustle efficiently.")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .padding(.top, 4)
                     }
                     .padding(.vertical, 4)
+                }
+                
+                Section("Legal") {
+                    Text("18+ verification required")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Terms of Service • Privacy Policy")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                    
+                    Text("Not affiliated with any casinos or gambling establishments")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
             }
             .navigationTitle("Settings")
@@ -98,6 +142,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showingImportSheet) {
                 ImportView(dataManager: dataManager)
             }
+            .sheet(isPresented: $showingProfile) {
+                ProfileView(dataManager: dataManager)
+            }
         }
     }
     
@@ -105,9 +152,112 @@ struct SettingsView: View {
         // Show confirmation dialog
         // For now, just reset the data
         dataManager.letters.removeAll()
-        dataManager.drops.removeAll()
-        dataManager.casinos.removeAll()
-        dataManager.loadDefaultCasinos()
+        dataManager.responses.removeAll()
+        dataManager.companies.removeAll()
+        dataManager.supplies.removeAll()
+        dataManager.calendarNotes.removeAll()
+        dataManager.loadDefaultCompanies()
+        dataManager.saveData()
+    }
+}
+
+struct ProfileView: View {
+    @ObservedObject var dataManager: DataManager
+    @Environment(\.dismiss) private var dismiss
+    @State private var username = ""
+    @State private var email = ""
+    @State private var newPostalCode = ""
+    
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Profile Information") {
+                    TextField("Username", text: $username)
+                    TextField("Email", text: $email)
+                        .keyboardType(.emailAddress)
+                        .autocapitalization(.none)
+                }
+                
+                Section("Postal Codes") {
+                    ForEach(dataManager.userProfile.postalCodes, id: \.self) { postalCode in
+                        HStack {
+                            Text(postalCode)
+                            Spacer()
+                            Button("Remove") {
+                                if let index = dataManager.userProfile.postalCodes.firstIndex(of: postalCode) {
+                                    dataManager.userProfile.postalCodes.remove(at: index)
+                                    dataManager.saveData()
+                                }
+                            }
+                            .foregroundColor(.red)
+                        }
+                    }
+                    .onDelete(perform: deletePostalCodes)
+                    
+                    HStack {
+                        TextField("Add Postal Code", text: $newPostalCode)
+                            .keyboardType(.numberPad)
+                        
+                        Button("Add") {
+                            if !newPostalCode.isEmpty {
+                                dataManager.userProfile.postalCodes.append(newPostalCode)
+                                newPostalCode = ""
+                                dataManager.saveData()
+                            }
+                        }
+                        .disabled(newPostalCode.isEmpty)
+                    }
+                }
+                
+                Section("Subscription") {
+                    HStack {
+                        Text("Current Plan")
+                        Spacer()
+                        Text(dataManager.userProfile.subscriptionType.rawValue)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    if dataManager.userProfile.subscriptionType == .trial {
+                        HStack {
+                            Text("Trial Ends")
+                            Spacer()
+                            Text("\(dataManager.daysLeftInTrial) days left")
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Profile")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+                
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        saveProfile()
+                    }
+                }
+            }
+            .onAppear {
+                username = dataManager.userProfile.username
+                email = dataManager.userProfile.email
+            }
+        }
+    }
+    
+    func saveProfile() {
+        dataManager.userProfile.username = username
+        dataManager.userProfile.email = email
+        dataManager.saveData()
+        dismiss()
+    }
+    
+    func deletePostalCodes(offsets: IndexSet) {
+        dataManager.userProfile.postalCodes.remove(atOffsets: offsets)
         dataManager.saveData()
     }
 }
@@ -122,8 +272,11 @@ struct ExportView: View {
         
         let export = ExportData(
             letters: dataManager.letters,
-            drops: dataManager.drops,
-            casinos: dataManager.casinos,
+            responses: dataManager.responses,
+            companies: dataManager.companies,
+            supplies: dataManager.supplies,
+            calendarNotes: dataManager.calendarNotes,
+            userProfile: dataManager.userProfile,
             settings: dataManager.settings,
             exportDate: Date()
         )
@@ -252,8 +405,11 @@ struct ImportView: View {
             let importedData = try decoder.decode(ExportData.self, from: data)
             
             dataManager.letters = importedData.letters
-            dataManager.drops = importedData.drops
-            dataManager.casinos = importedData.casinos
+            dataManager.responses = importedData.responses
+            dataManager.companies = importedData.companies
+            dataManager.supplies = importedData.supplies
+            dataManager.calendarNotes = importedData.calendarNotes
+            dataManager.userProfile = importedData.userProfile
             dataManager.settings = importedData.settings
             dataManager.saveData()
             
@@ -268,8 +424,11 @@ struct ImportView: View {
 
 struct ExportData: Codable {
     let letters: [Letter]
-    let drops: [Drop]
-    let casinos: [Casino]
+    let responses: [Response]
+    let companies: [Company]
+    let supplies: [Supply]
+    let calendarNotes: [CalendarNote]
+    let userProfile: UserProfile
     let settings: UserSettings
     let exportDate: Date
 }

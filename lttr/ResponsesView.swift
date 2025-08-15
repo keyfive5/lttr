@@ -1,17 +1,17 @@
 import SwiftUI
 
-struct DropsView: View {
+struct ResponsesView: View {
     @ObservedObject var dataManager: DataManager
-    @State private var showingAddDrop = false
+    @State private var showingAddResponse = false
     @State private var searchText = ""
     
-    var filteredDrops: [Drop] {
+    var filteredResponses: [Response] {
         if searchText.isEmpty {
-            return dataManager.drops.sorted { $0.dateReceived > $1.dateReceived }
+            return dataManager.responses.sorted { $0.dateReceived > $1.dateReceived }
         } else {
-            return dataManager.drops.filter { drop in
-                drop.casinoName.localizedCaseInsensitiveContains(searchText) ||
-                drop.notes.localizedCaseInsensitiveContains(searchText)
+            return dataManager.responses.filter { response in
+                response.companyName.localizedCaseInsensitiveContains(searchText) ||
+                response.notes.localizedCaseInsensitiveContains(searchText)
             }.sorted { $0.dateReceived > $1.dateReceived }
         }
     }
@@ -19,27 +19,27 @@ struct DropsView: View {
     var body: some View {
         NavigationView {
             VStack {
-                if dataManager.drops.isEmpty {
+                if dataManager.responses.isEmpty {
                     VStack(spacing: 20) {
                         Image(systemName: "dollarsign.circle")
                             .font(.system(size: 60))
                             .foregroundColor(.green)
                         
                         VStack(spacing: 8) {
-                            Text("No Drops Yet")
+                            Text("No Responses Yet")
                                 .font(.title2)
                                 .fontWeight(.semibold)
                             
-                            Text("Track your casino drops as they come in")
+                            Text("Track your responses as they come in")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                         }
                         
-                        Button(action: { showingAddDrop = true }) {
+                        Button(action: { showingAddResponse = true }) {
                             HStack {
                                 Image(systemName: "plus.circle.fill")
-                                Text("Add First Drop")
+                                Text("Add First Response")
                             }
                             .font(.headline)
                             .foregroundColor(.white)
@@ -51,41 +51,41 @@ struct DropsView: View {
                     .padding()
                 } else {
                     List {
-                        ForEach(filteredDrops) { drop in
-                            DropRow(drop: drop, dataManager: dataManager)
+                        ForEach(filteredResponses) { response in
+                            ResponseRow(response: response, dataManager: dataManager)
                         }
-                        .onDelete(perform: deleteDrops)
+                        .onDelete(perform: deleteResponses)
                     }
-                    .searchable(text: $searchText, prompt: "Search drops...")
+                    .searchable(text: $searchText, prompt: "Search responses...")
                 }
             }
-            .navigationTitle("Drops Received")
+            .navigationTitle("Responses Received")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingAddDrop = true }) {
+                    Button(action: { showingAddResponse = true }) {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingAddDrop) {
-                AddDropView(dataManager: dataManager)
+            .sheet(isPresented: $showingAddResponse) {
+                AddResponseView(dataManager: dataManager)
             }
         }
     }
     
-    func deleteDrops(offsets: IndexSet) {
-        dataManager.drops.remove(atOffsets: offsets)
+    func deleteResponses(offsets: IndexSet) {
+        dataManager.responses.remove(atOffsets: offsets)
         dataManager.saveData()
     }
 }
 
-struct DropRow: View {
-    let drop: Drop
+struct ResponseRow: View {
+    let response: Response
     @ObservedObject var dataManager: DataManager
     
     var linkedLetter: Letter? {
-        guard let linkedLetterId = drop.linkedLetterId else { return nil }
+        guard let linkedLetterId = response.linkedLetterId else { return nil }
         return dataManager.letters.first { $0.id == linkedLetterId }
     }
     
@@ -93,11 +93,11 @@ struct DropRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(drop.casinoName)
+                    Text(response.companyName)
                         .font(.headline)
                         .fontWeight(.semibold)
                     
-                    Text(drop.dateReceived.formatted(date: .abbreviated, time: .omitted))
+                    Text(response.dateReceived.formatted(date: .abbreviated, time: .omitted))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -105,7 +105,7 @@ struct DropRow: View {
                 Spacer()
                 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("$\(String(format: "%.0f", drop.amount))")
+                    Text("$\(String(format: "%.0f", response.amount))")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(.green)
@@ -134,8 +134,8 @@ struct DropRow: View {
                 }
             }
             
-            if !drop.notes.isEmpty {
-                Text(drop.notes)
+            if !response.notes.isEmpty {
+                Text(response.notes)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(2)
@@ -145,11 +145,11 @@ struct DropRow: View {
     }
 }
 
-struct AddDropView: View {
+struct AddResponseView: View {
     @ObservedObject var dataManager: DataManager
     @Environment(\.dismiss) private var dismiss
     
-    @State private var casinoName = ""
+    @State private var companyName = ""
     @State private var amount = ""
     @State private var notes = ""
     @State private var dateReceived = Date()
@@ -168,8 +168,8 @@ struct AddDropView: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("Drop Details") {
-                    TextField("Casino Name", text: $casinoName)
+                Section("Response Details") {
+                    TextField("Company Name", text: $companyName)
                     
                     TextField("Amount Received", text: $amount)
                         .keyboardType(.decimalPad)
@@ -187,7 +187,7 @@ struct AddDropView: View {
                                 Text("Select Letter")
                                 Spacer()
                                 if let letter = selectedLetter {
-                                    Text(letter.casinoName)
+                                    Text(letter.companyName)
                                         .foregroundColor(.secondary)
                                 } else {
                                     Text("None")
@@ -201,7 +201,7 @@ struct AddDropView: View {
                                 Text("Selected Letter:")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Text("\(letter.casinoName) - $\(String(format: "%.0f", letter.expectedDrop))")
+                                Text("\(letter.companyName) - $\(String(format: "%.0f", letter.expectedResponse))")
                                     .font(.subheadline)
                                     .fontWeight(.medium)
                                 Text("Sent: \(letter.dateSent.formatted(date: .abbreviated, time: .omitted))")
@@ -218,7 +218,7 @@ struct AddDropView: View {
                         .lineLimit(3...6)
                 }
             }
-            .navigationTitle("Add Drop")
+            .navigationTitle("Add Response")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -229,9 +229,9 @@ struct AddDropView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        saveDrop()
+                        saveResponse()
                     }
-                    .disabled(casinoName.isEmpty || amount.isEmpty)
+                    .disabled(companyName.isEmpty || amount.isEmpty)
                 }
             }
             .sheet(isPresented: $showingLetterPicker) {
@@ -243,18 +243,18 @@ struct AddDropView: View {
         }
     }
     
-    func saveDrop() {
+    func saveResponse() {
         guard let amountValue = Double(amount) else { return }
         
-        let newDrop = Drop(
+        let newResponse = Response(
             dateReceived: dateReceived,
             amount: amountValue,
-            casinoName: casinoName,
+            companyName: companyName,
             linkedLetterId: selectedLetterId,
             notes: notes
         )
         
-        dataManager.drops.append(newDrop)
+        dataManager.responses.append(newResponse)
         
         // Mark the linked letter as confirmed if one was selected
         if let selectedLetterId = selectedLetterId,
@@ -282,7 +282,7 @@ struct LetterPickerView: View {
                     }) {
                         HStack {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(letter.casinoName)
+                                Text(letter.companyName)
                                     .font(.headline)
                                     .foregroundColor(.primary)
                                 
@@ -294,17 +294,27 @@ struct LetterPickerView: View {
                             Spacer()
                             
                             VStack(alignment: .trailing, spacing: 4) {
-                                Text("$\(String(format: "%.0f", letter.expectedDrop))")
+                                Text("$\(String(format: "%.0f", letter.expectedResponse))")
                                     .font(.headline)
                                     .foregroundColor(.green)
                                 
-                                Text(letter.method.rawValue)
-                                    .font(.caption)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.blue.opacity(0.1))
-                                    .foregroundColor(.blue)
-                                    .cornerRadius(4)
+                                if letter.quantity > 1 {
+                                    Text("\(letter.quantity) letters")
+                                        .font(.caption)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(4)
+                                } else {
+                                    Text("Handwritten")
+                                        .font(.caption)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(4)
+                                }
                             }
                         }
                     }
@@ -324,5 +334,5 @@ struct LetterPickerView: View {
 }
 
 #Preview {
-    DropsView(dataManager: DataManager())
-} 
+    ResponsesView(dataManager: DataManager())
+}

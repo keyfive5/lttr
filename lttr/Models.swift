@@ -6,37 +6,68 @@ import SwiftUI
 struct Letter: Identifiable, Codable {
     let id = UUID()
     var dateSent: Date
-    var casinoName: String
-    var method: LetterMethod
-    var expectedDrop: Double
+    var companyName: String
+    var expectedResponse: Double
     var notes: String
     var isConfirmed: Bool = false
-    
-    enum LetterMethod: String, CaseIterable, Codable {
-        case handwritten = "Handwritten"
-        case email = "Email"
-        case typed = "Typed"
-    }
+    var quantity: Int = 1 // For multiple letters
 }
 
-struct Drop: Identifiable, Codable {
+struct Response: Identifiable, Codable {
     let id = UUID()
     var dateReceived: Date
     var amount: Double
-    var casinoName: String
+    var companyName: String
     var linkedLetterId: UUID?
     var notes: String
 }
 
-struct Casino: Identifiable, Codable {
+struct Company: Identifiable, Codable {
     let id = UUID()
     var name: String
     var address: String
     var responseRate: Double // percentage
-    var preferredFormat: Letter.LetterMethod
-    var expectedDropRange: ClosedRange<Double>
+    var expectedResponseRange: ClosedRange<Double>
     var lastUpdated: Date
     var notes: String
+}
+
+struct Supply: Identifiable, Codable {
+    let id = UUID()
+    var name: String
+    var quantity: Int
+    var cost: Double
+    var datePurchased: Date
+    var notes: String
+}
+
+struct CalendarNote: Identifiable, Codable {
+    let id = UUID()
+    var date: Date
+    var title: String
+    var notes: String
+    var type: NoteType
+    
+    enum NoteType: String, CaseIterable, Codable {
+        case letter = "Letter"
+        case response = "Response"
+        case supply = "Supply"
+        case general = "General"
+    }
+}
+
+struct UserProfile: Codable {
+    var username: String = ""
+    var email: String = ""
+    var postalCodes: [String] = []
+    var subscriptionType: SubscriptionType = .trial
+    var trialStartDate: Date = Date()
+    
+    enum SubscriptionType: String, CaseIterable, Codable {
+        case trial = "Trial"
+        case monthly = "Monthly"
+        case yearly = "Yearly"
+    }
 }
 
 struct UserSettings: Codable {
@@ -49,19 +80,25 @@ struct UserSettings: Codable {
 
 class DataManager: ObservableObject {
     @Published var letters: [Letter] = []
-    @Published var drops: [Drop] = []
-    @Published var casinos: [Casino] = []
+    @Published var responses: [Response] = []
+    @Published var companies: [Company] = []
+    @Published var supplies: [Supply] = []
+    @Published var calendarNotes: [CalendarNote] = []
+    @Published var userProfile = UserProfile()
     @Published var settings = UserSettings()
     
     private let lettersKey = "savedLetters"
-    private let dropsKey = "savedDrops"
-    private let casinosKey = "savedCasinos"
+    private let responsesKey = "savedResponses"
+    private let companiesKey = "savedCompanies"
+    private let suppliesKey = "savedSupplies"
+    private let calendarNotesKey = "savedCalendarNotes"
+    private let userProfileKey = "userProfile"
     private let settingsKey = "userSettings"
     
     init() {
         loadData()
-        if casinos.isEmpty {
-            loadDefaultCasinos()
+        if companies.isEmpty {
+            loadDefaultCompanies()
         }
     }
     
@@ -69,11 +106,20 @@ class DataManager: ObservableObject {
         if let encoded = try? JSONEncoder().encode(letters) {
             UserDefaults.standard.set(encoded, forKey: lettersKey)
         }
-        if let encoded = try? JSONEncoder().encode(drops) {
-            UserDefaults.standard.set(encoded, forKey: dropsKey)
+        if let encoded = try? JSONEncoder().encode(responses) {
+            UserDefaults.standard.set(encoded, forKey: responsesKey)
         }
-        if let encoded = try? JSONEncoder().encode(casinos) {
-            UserDefaults.standard.set(encoded, forKey: casinosKey)
+        if let encoded = try? JSONEncoder().encode(companies) {
+            UserDefaults.standard.set(encoded, forKey: companiesKey)
+        }
+        if let encoded = try? JSONEncoder().encode(supplies) {
+            UserDefaults.standard.set(encoded, forKey: suppliesKey)
+        }
+        if let encoded = try? JSONEncoder().encode(calendarNotes) {
+            UserDefaults.standard.set(encoded, forKey: calendarNotesKey)
+        }
+        if let encoded = try? JSONEncoder().encode(userProfile) {
+            UserDefaults.standard.set(encoded, forKey: userProfileKey)
         }
         if let encoded = try? JSONEncoder().encode(settings) {
             UserDefaults.standard.set(encoded, forKey: settingsKey)
@@ -85,13 +131,25 @@ class DataManager: ObservableObject {
            let decoded = try? JSONDecoder().decode([Letter].self, from: data) {
             letters = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: dropsKey),
-           let decoded = try? JSONDecoder().decode([Drop].self, from: data) {
-            drops = decoded
+        if let data = UserDefaults.standard.data(forKey: responsesKey),
+           let decoded = try? JSONDecoder().decode([Response].self, from: data) {
+            responses = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: casinosKey),
-           let decoded = try? JSONDecoder().decode([Casino].self, from: data) {
-            casinos = decoded
+        if let data = UserDefaults.standard.data(forKey: companiesKey),
+           let decoded = try? JSONDecoder().decode([Company].self, from: data) {
+            companies = decoded
+        }
+        if let data = UserDefaults.standard.data(forKey: suppliesKey),
+           let decoded = try? JSONDecoder().decode([Supply].self, from: data) {
+            supplies = decoded
+        }
+        if let data = UserDefaults.standard.data(forKey: calendarNotesKey),
+           let decoded = try? JSONDecoder().decode([CalendarNote].self, from: data) {
+            calendarNotes = decoded
+        }
+        if let data = UserDefaults.standard.data(forKey: userProfileKey),
+           let decoded = try? JSONDecoder().decode(UserProfile.self, from: data) {
+            userProfile = decoded
         }
         if let data = UserDefaults.standard.data(forKey: settingsKey),
            let decoded = try? JSONDecoder().decode(UserSettings.self, from: data) {
@@ -99,12 +157,12 @@ class DataManager: ObservableObject {
         }
     }
     
-    func loadDefaultCasinos() {
-        casinos = [
-            Casino(name: "Bellagio", address: "3600 S Las Vegas Blvd, Las Vegas, NV 89109", responseRate: 0.15, preferredFormat: .handwritten, expectedDropRange: 50...200, lastUpdated: Date(), notes: "High-end property, prefers handwritten letters"),
-            Casino(name: "Caesars Palace", address: "3570 S Las Vegas Blvd, Las Vegas, NV 89109", responseRate: 0.12, preferredFormat: .typed, expectedDropRange: 25...150, lastUpdated: Date(), notes: "Classic Vegas casino"),
-            Casino(name: "MGM Grand", address: "3799 S Las Vegas Blvd, Las Vegas, NV 89109", responseRate: 0.18, preferredFormat: .handwritten, expectedDropRange: 30...180, lastUpdated: Date(), notes: "Good response rate for handwritten"),
-            Casino(name: "The Venetian", address: "3355 S Las Vegas Blvd, Las Vegas, NV 89109", responseRate: 0.10, preferredFormat: .email, expectedDropRange: 20...100, lastUpdated: Date(), notes: "Luxury property, accepts email")
+    func loadDefaultCompanies() {
+        companies = [
+            Company(name: "Local Restaurant", address: "123 Main St, City, State", responseRate: 0.15, expectedResponseRange: 25...100, lastUpdated: Date(), notes: "Family-owned business"),
+            Company(name: "Small Business Inc", address: "456 Oak Ave, City, State", responseRate: 0.12, expectedResponseRange: 20...75, lastUpdated: Date(), notes: "Professional business"),
+            Company(name: "Community Center", address: "789 Pine Rd, City, State", responseRate: 0.18, expectedResponseRange: 15...60, lastUpdated: Date(), notes: "Good response rate"),
+            Company(name: "Local Shop", address: "321 Elm St, City, State", responseRate: 0.10, expectedResponseRange: 10...50, lastUpdated: Date(), notes: "Modern business")
         ]
         saveData()
     }
@@ -112,29 +170,29 @@ class DataManager: ObservableObject {
     // MARK: - Computed Properties
     
     var totalLettersSent: Int {
-        letters.count
+        letters.reduce(0) { $0 + $1.quantity }
     }
     
-    var totalDropsReceived: Int {
-        drops.count
+    var totalResponsesReceived: Int {
+        responses.count
     }
     
     var totalAmountReceived: Double {
-        drops.reduce(0) { $0 + $1.amount }
+        responses.reduce(0) { $0 + $1.amount }
     }
     
-    var totalExpectedDrops: Double {
-        letters.reduce(0) { $0 + $1.expectedDrop }
+    var totalExpectedResponses: Double {
+        letters.reduce(0) { $0 + ($1.expectedResponse * Double($1.quantity)) }
     }
     
     var roi: Double {
-        guard totalExpectedDrops > 0 else { return 0 }
-        return (totalAmountReceived / totalExpectedDrops - 1) * 100
+        guard totalExpectedResponses > 0 else { return 0 }
+        return (totalAmountReceived / totalExpectedResponses - 1) * 100
     }
     
-    var averageDropValue: Double {
-        guard !drops.isEmpty else { return 0 }
-        return totalAmountReceived / Double(drops.count)
+    var averageResponseValue: Double {
+        guard !responses.isEmpty else { return 0 }
+        return totalAmountReceived / Double(responses.count)
     }
     
     var confirmedLetters: [Letter] {
@@ -143,5 +201,20 @@ class DataManager: ObservableObject {
     
     var pendingLetters: [Letter] {
         letters.filter { !$0.isConfirmed }
+    }
+    
+    var totalSupplyCost: Double {
+        supplies.reduce(0) { $0 + $1.cost }
+    }
+    
+    var isTrialExpired: Bool {
+        let trialEndDate = Calendar.current.date(byAdding: .day, value: 7, to: userProfile.trialStartDate) ?? Date()
+        return Date() > trialEndDate && userProfile.subscriptionType == .trial
+    }
+    
+    var daysLeftInTrial: Int {
+        let trialEndDate = Calendar.current.date(byAdding: .day, value: 7, to: userProfile.trialStartDate) ?? Date()
+        let days = Calendar.current.dateComponents([.day], from: Date(), to: trialEndDate).day ?? 0
+        return max(0, days)
     }
 } 

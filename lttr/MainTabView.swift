@@ -7,8 +7,8 @@ struct MainTabView: View {
         TabView {
             DashboardView(dataManager: dataManager)
                 .tabItem {
-                    Image(systemName: "chart.bar.fill")
-                    Text("Dashboard")
+                    Image(systemName: "house.fill")
+                    Text("Home")
                 }
             
             LettersView(dataManager: dataManager)
@@ -17,16 +17,16 @@ struct MainTabView: View {
                     Text("Letters")
                 }
             
-            DropsView(dataManager: dataManager)
+            ResponsesView(dataManager: dataManager)
                 .tabItem {
-                    Image(systemName: "dollarsign.circle.fill")
+                    Image(systemName: "arrow.down.circle.fill")
                     Text("Drops")
                 }
             
-            CasinosView(dataManager: dataManager)
+            SuppliesView(dataManager: dataManager)
                 .tabItem {
-                    Image(systemName: "building.2.fill")
-                    Text("Casinos")
+                    Image(systemName: "shippingbox.fill")
+                    Text("Tracker")
                 }
             
             SettingsView(dataManager: dataManager)
@@ -35,7 +35,28 @@ struct MainTabView: View {
                     Text("Settings")
                 }
         }
-        .accentColor(.blue)
+        .accentColor(Color(red: 0.4, green: 0.6, blue: 1.0))
+        .onAppear {
+            // Customize tab bar appearance
+            let appearance = UITabBarAppearance()
+            appearance.configureWithOpaqueBackground()
+            appearance.backgroundColor = UIColor.white
+            
+            // Normal state
+            appearance.stackedLayoutAppearance.normal.iconColor = UIColor(red: 0.6, green: 0.6, blue: 0.65, alpha: 1.0)
+            appearance.stackedLayoutAppearance.normal.titleTextAttributes = [
+                .foregroundColor: UIColor(red: 0.6, green: 0.6, blue: 0.65, alpha: 1.0)
+            ]
+            
+            // Selected state
+            appearance.stackedLayoutAppearance.selected.iconColor = UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+            appearance.stackedLayoutAppearance.selected.titleTextAttributes = [
+                .foregroundColor: UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 1.0)
+            ]
+            
+            UITabBar.appearance().standardAppearance = appearance
+            UITabBar.appearance().scrollEdgeAppearance = appearance
+        }
     }
 }
 
